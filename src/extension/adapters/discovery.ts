@@ -13,8 +13,23 @@ const CODEX_ORIGINATOR = "codex_cli_rs";
 
 // ─── External API response types ─────────────────────────────────
 
+interface OpenAIModel {
+  id: string;
+  name?: string;
+  display_name?: string;
+  context_window?: number;
+  context_length?: number;
+  max_context_window?: number;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  max_completion_tokens?: number;
+  max_tokens?: number;
+  reasoning?: boolean;
+  input_modalities?: string[];
+  modalities?: { input?: string[] };
+}
 interface OpenAIModelsResp {
-  data?: Array<{ id: string }>;
+  data?: OpenAIModel[];
 }
 interface CodexModelsResp {
   models?: Array<{
@@ -233,7 +248,31 @@ async function discoverNative(
 
 async function discoverOpenAI(baseUrl: string, apiKey: string): Promise<DiscoveredModel[]> {
   const r = await get<OpenAIModelsResp>(`${baseUrl}/models`, bearer(apiKey));
-  return (r?.data || []).filter((m) => m.id?.trim()).map((m) => ({ id: m.id.trim(), name: m.id.trim() }));
+  return (r?.data || [])
+    .filter((model) => model.id?.trim())
+    .map((model) => {
+      const contextWindow = [
+        model.context_window,
+        model.context_length,
+        model.max_context_window,
+        model.max_input_tokens,
+      ].find(isPositiveTokenLimit);
+      const maxTokens = [model.max_output_tokens, model.max_completion_tokens, model.max_tokens].find(
+        isPositiveTokenLimit,
+      );
+      return {
+        id: model.id.trim(),
+        name: model.display_name?.trim() || model.name?.trim() || model.id.trim(),
+        ...(contextWindow === undefined ? {} : { contextWindow }),
+        ...(maxTokens === undefined ? {} : { maxTokens }),
+        ...(typeof model.reasoning === "boolean" ? { reasoning: model.reasoning } : {}),
+        input: inputFilter(model.input_modalities || model.modalities?.input),
+      };
+    });
+}
+
+function isPositiveTokenLimit(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
 async function discoverCodexModels(

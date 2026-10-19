@@ -17,6 +17,8 @@ Opening `/model-config` shows a sectioned provider list: an Actions block (`Crea
 
 Provider fields, discovery, model selection, credentials, and deletion are direct actions in the provider window. API keys and OAuth credentials are entered while creating the provider, so discovery works before the first save; request headers are configured after saving. Validation failures appear as error notifications.
 
+OpenAI-compatible model discovery preserves server-reported context windows, output limits, reasoning support, and input modalities when the `/models` response includes them.
+
 The interface supports provider renaming, model selection with native search and scrolling, full model metadata including cost tiers, optional-field removal, compatibility settings, and write-only provider/model headers. Changes immediately synchronize with Pi. Switch the active model before renaming or deleting its provider or removing that model.
 
 Pi's native credential input is visible; the interface tells you this and never prefills stored secrets. OAuth supports Pi authentication flows, JSON import, and explicit server-side file references. File-backed refresh updates the selected file. Logging in again, importing, or clearing credentials detaches an old file reference. Changing an endpoint, API, or authentication method detaches previous credentials and headers.

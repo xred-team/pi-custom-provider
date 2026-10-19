@@ -934,6 +934,60 @@ test("discovery accepts runtime-advertised Baseten metadata without dropping the
   }
 });
 
+test("OpenAI-compatible discovery preserves context and output limits from the model list", async () => {
+  const f = fixture({
+    discovery: {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: "deepseek-v4-flash",
+                display_name: "DeepSeek V4 Flash",
+                context_window: 1_000_000,
+                context_length: 900_000,
+                max_output_tokens: 32_000,
+                reasoning: true,
+                modalities: { input: ["text", "image"] },
+              },
+              {
+                id: "codex-model",
+                context_length: 872_000,
+                max_completion_tokens: 16_000,
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    },
+  });
+  try {
+    await f.run("provider.create", values());
+    const draft = (await f.run("draft.open", { providerId: "fixture" })).data;
+    const discovered = await f.run("model.discover", {
+      draftId: draft.draftId,
+      revision: draft.revision,
+    });
+    assert.equal(discovered.status, "succeeded", JSON.stringify(discovered.error));
+    const models: Array<Record<string, unknown>> = discovered.data.candidates.map(
+      (candidate: { model: Record<string, unknown> }) => candidate.model,
+    );
+    const deepseek = models.find((model) => model.id === "deepseek-v4-flash");
+    assert.ok(deepseek);
+    assert.equal(deepseek.name, "DeepSeek V4 Flash");
+    assert.equal(deepseek.contextWindow, 1_000_000);
+    assert.equal(deepseek.maxTokens, 32_000);
+    assert.equal(deepseek.reasoning, true);
+    assert.deepEqual(deepseek.input, ["text", "image"]);
+    const codex = models.find((model) => model.id === "codex-model");
+    assert.ok(codex);
+    assert.equal(codex.contextWindow, 872_000);
+    assert.equal(codex.maxTokens, 16_000);
+  } finally {
+    await f.dispose();
+  }
+});
+
 test("a provider Pi ships is listed once it is usable, and adjusting a model patches only it", async () => {
   const f = fixture();
   try {
